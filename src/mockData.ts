@@ -1,0 +1,126 @@
+import { Employee, AttendanceRecord, PayrollRecord, LeaveRequest, LeaveBalance } from './types';
+
+export const MOCK_EMPLOYEES: Employee[] = [
+  {
+    id: 'EMP001',
+    name: 'Ahmad bin Zulkifli',
+    position: 'Senior Software Engineer',
+    department: 'Technology',
+    email: 'ahmad.z@enterprise.com',
+    joinDate: '2022-01-15',
+    status: 'Active',
+    salary: 8500,
+    epfNo: '12345678',
+    socsoNo: '850115-10-5543',
+    taxNo: 'SG123456789',
+    profilePicture: 'https://picsum.photos/seed/ahmad/200',
+  },
+  {
+    id: 'EMP002',
+    name: 'Siti Aminah binti Hassan',
+    position: 'HR Manager',
+    department: 'Human Resources',
+    email: 'siti.a@enterprise.com',
+    joinDate: '2021-06-01',
+    status: 'Active',
+    salary: 7200,
+    epfNo: '87654321',
+    socsoNo: '880601-08-5562',
+    taxNo: 'SG987654321',
+    profilePicture: 'https://picsum.photos/seed/siti/200',
+  },
+  {
+    id: 'EMP003',
+    name: 'Tan Wei Keong',
+    position: 'Finance Executive',
+    department: 'Finance',
+    email: 'tan.wk@enterprise.com',
+    joinDate: '2023-03-10',
+    status: 'Active',
+    salary: 5500,
+    epfNo: '11223344',
+    socsoNo: '950310-14-5571',
+    taxNo: 'SG112233445',
+    profilePicture: 'https://picsum.photos/seed/tan/200',
+  },
+  {
+    id: 'EMP004',
+    name: 'Muthu Arumugam',
+    position: 'Operations Lead',
+    department: 'Operations',
+    email: 'muthu.a@enterprise.com',
+    joinDate: '2020-11-20',
+    status: 'Active',
+    salary: 6800,
+    epfNo: '44332211',
+    socsoNo: '821120-01-5589',
+    taxNo: 'SG443322110',
+    profilePicture: 'https://picsum.photos/seed/muthu/200',
+  },
+];
+
+export const MOCK_ATTENDANCE: AttendanceRecord[] = [
+  { id: '1', employeeId: 'EMP001', date: '2024-03-20', checkIn: '08:55', checkOut: '18:05', status: 'Present' },
+  { id: '2', employeeId: 'EMP002', date: '2024-03-20', checkIn: '09:02', checkOut: '17:55', status: 'Present' },
+  { id: '3', employeeId: 'EMP003', date: '2024-03-20', checkIn: '09:15', checkOut: '18:10', status: 'Late' },
+  { id: '4', employeeId: 'EMP004', date: '2024-03-20', checkIn: '-', checkOut: '-', status: 'On Leave' },
+];
+
+export const MOCK_PAYROLL: PayrollRecord[] = [
+  {
+    id: 'PAY001',
+    employeeId: 'EMP001',
+    month: '2024-02',
+    basicSalary: 8500,
+    allowances: 500,
+    deductions: 0,
+    epfEmployee: 935,
+    epfEmployer: 1020,
+    socsoEmployee: 19.75,
+    socsoEmployer: 69.05,
+    eisEmployee: 17.00,
+    eisEmployer: 17.00,
+    pcb: 450,
+    netSalary: 7578.25,
+  },
+];
+
+export const MOCK_LEAVE_REQUESTS: LeaveRequest[] = [
+  {
+    id: 'LR001',
+    employeeId: 'EMP001',
+    type: 'Annual',
+    startDate: '2024-04-10',
+    endDate: '2024-04-12',
+    reason: 'Family vacation',
+    status: 'Pending',
+    appliedDate: '2024-04-01',
+  },
+  {
+    id: 'LR002',
+    employeeId: 'EMP003',
+    type: 'Medical',
+    startDate: '2024-04-05',
+    endDate: '2024-04-05',
+    reason: 'Fever',
+    status: 'Approved',
+    appliedDate: '2024-04-04',
+  },
+  {
+    id: 'LR003',
+    employeeId: 'EMP004',
+    type: 'Emergency',
+    startDate: '2024-04-02',
+    endDate: '2024-04-02',
+    reason: 'Family emergency',
+    status: 'Rejected',
+    appliedDate: '2024-04-02',
+  },
+];
+
+export const MOCK_LEAVE_BALANCES: LeaveBalance[] = [
+  { employeeId: 'EMP001', annual: 12, medical: 14, unpaid: 0 },
+  { employeeId: 'EMP002', annual: 15, medical: 14, unpaid: 0 },
+  { employeeId: 'EMP003', annual: 10, medical: 13, unpaid: 2 },
+  { employeeId: 'EMP004', annual: 8, medical: 14, unpaid: 5 },
+];

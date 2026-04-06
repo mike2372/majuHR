@@ -1,0 +1,187 @@
+import React, { useState } from 'react';
+import { 
+  Calendar as CalendarIcon, 
+  Clock, 
+  MapPin, 
+  UserCheck, 
+  UserX, 
+  MoreHorizontal,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+import { MOCK_ATTENDANCE, MOCK_EMPLOYEES } from '../mockData';
+import { cn } from '../lib/utils';
+import { format, addDays, subDays } from 'date-fns';
+
+export function Attendance() {
+  const [currentDate, setCurrentDate] = useState(new Date('2024-03-20'));
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const formattedDate = format(currentDate, 'yyyy-MM-dd');
+  
+  const dailyRecords = MOCK_ATTENDANCE.filter(record => record.date === formattedDate);
+  
+  const filteredRecords = dailyRecords.filter(record => {
+    const emp = MOCK_EMPLOYEES.find(e => e.id === record.employeeId);
+    return emp?.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           emp?.id.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const stats = {
+    present: dailyRecords.filter(r => r.status === 'Present').length,
+    late: dailyRecords.filter(r => r.status === 'Late').length,
+    absent: dailyRecords.filter(r => r.status === 'Absent').length,
+    onLeave: dailyRecords.filter(r => r.status === 'On Leave').length,
+  };
+
+  const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
+  const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Attendance Log</h2>
+          <p className="text-gray-500">Track employee daily check-ins, check-outs, and status.</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+          <button 
+            onClick={handlePrevDay}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 text-gray-600" />
+          </button>
+          <span className="text-sm font-semibold px-4 text-gray-700 min-w-[140px] text-center">
+            {format(currentDate, 'dd MMMM yyyy')}
+          </span>
+          <button 
+            onClick={handleNextDay}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          >
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <AttendanceStat label="Present" value={stats.present.toString()} color="text-green-600" bg="bg-green-50" icon={UserCheck} />
+        <AttendanceStat label="Late" value={stats.late.toString()} color="text-amber-600" bg="bg-amber-50" icon={Clock} />
+        <AttendanceStat label="Absent" value={stats.absent.toString()} color="text-red-600" bg="bg-red-50" icon={UserX} />
+        <AttendanceStat label="On Leave" value={stats.onLeave.toString()} color="text-blue-600" bg="bg-blue-50" icon={CalendarIcon} />
+      </div>
+
+      {/* Attendance Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="relative flex-1 w-full md:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="Search employee..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <button className="px-4 py-2 border border-gray-200 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors text-gray-600">
+              <Filter className="w-4 h-4" />
+              Filter Status
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Check In</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Check Out</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Work Hours</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredRecords.map((record) => {
+                const emp = MOCK_EMPLOYEES.find(e => e.id === record.employeeId);
+                return (
+                  <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                          {emp?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{emp?.name}</p>
+                          <p className="text-xs text-gray-500">{emp?.id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        {record.checkIn}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        {record.checkOut}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {record.checkIn !== '-' ? '9h 10m' : '-'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-medium",
+                        record.status === 'Present' ? "bg-green-100 text-green-700" :
+                        record.status === 'Late' ? "bg-amber-100 text-amber-700" :
+                        record.status === 'On Leave' ? "bg-blue-100 text-blue-700" :
+                        "bg-red-100 text-red-700"
+                      )}>
+                        {record.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {filteredRecords.length === 0 && (
+          <div className="p-12 text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 text-gray-400 mb-4">
+              <CalendarIcon className="w-6 h-6" />
+            </div>
+            <p className="text-gray-500">No attendance records found for this date.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AttendanceStat({ label, value, color, bg, icon: Icon }: any) {
+  return (
+    <div className={cn("p-4 rounded-xl border border-transparent flex items-center gap-4", bg)}>
+      <div className={cn("p-2 rounded-lg bg-white shadow-sm", color)}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+        <p className={cn("text-xl font-bold", color)}>{value}</p>
+      </div>
+    </div>
+  );
+}
