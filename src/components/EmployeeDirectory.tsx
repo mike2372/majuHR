@@ -1,23 +1,58 @@
-import React, { useState, useRef } from 'react';
-import { Search, Plus, Filter, MoreVertical, X, Mail, Phone, Calendar, Briefcase, Building, CreditCard, ShieldCheck, History, ArrowLeft, Trash2, Upload, AlertCircle, CheckCircle2, Eye, EyeOff, Download } from 'lucide-react';
-import { MOCK_EMPLOYEES, MOCK_LEAVE_REQUESTS, MOCK_LEAVE_BALANCES } from '../mockData';
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, Plus, Filter, MoreVertical, X, Mail, Phone, Calendar, Briefcase, Building, CreditCard, ShieldCheck, History, ArrowLeft, Trash2, Upload, AlertCircle, CheckCircle2, Eye, EyeOff, Download, Check, X as XIcon, Clock as ClockIcon, CalendarCheck, CalendarX, UserMinus, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUser } from '../contexts/UserContext';
-import { Employee, EmployeeStatus, LeaveRequest, LeaveStatus, LeaveType } from '../types';
+import { Employee, EmployeeStatus, LeaveRequest, LeaveStatus, LeaveType, LeaveBalance } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
-import { Check, X as XIcon, Clock as ClockIcon, CalendarCheck, CalendarX, UserMinus } from 'lucide-react';
 import { differenceInDays, parseISO } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-
 import { useNotifications } from '../contexts/NotificationContext';
+import { supabase } from '../lib/supabase';
 
 export function EmployeeDirectory() {
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>(MOCK_LEAVE_REQUESTS);
-  const [leaveEntitlements, setLeaveEntitlements] = useState(MOCK_LEAVE_BALANCES);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [leaveEntitlements, setLeaveEntitlements] = useState<LeaveBalance[]>([]);
   const { addNotification } = useNotifications();
+
+  // Supabase Subscriptions
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      const { data } = await supabase.from('employees').select('*');
+      if (data) setEmployees(data as Employee[]);
+    };
+    fetchEmployees();
+    const channel = supabase.channel('dir-employees')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchEmployees())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const fetchLeaves = async () => {
+      const { data } = await supabase.from('leaves').select('*');
+      if (data) setLeaveRequests(data as LeaveRequest[]);
+    };
+    fetchLeaves();
+    const channel = supabase.channel('dir-leaves')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, () => fetchLeaves())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const fetchEntitlements = async () => {
+      const { data } = await supabase.from('entitlements').select('*');
+      if (data) setLeaveEntitlements(data as LeaveBalance[]);
+    };
+    fetchEntitlements();
+    const channel = supabase.channel('dir-entitlements')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entitlements' }, () => fetchEntitlements())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
   const [activeTab, setActiveTab] = useState<'directory' | 'leaves'>('directory');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'All'>('All');
@@ -87,10 +122,16 @@ export function EmployeeDirectory() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Are you sure you want to delete this employee?')) {
-      setEmployees(prev => prev.filter(emp => emp.id !== id));
+      try {
+        await supabase.from('entitlements').delete().eq('employeeId', id);
+        await supabase.from('employees').delete().eq('id', id);
+      } catch (error) {
+        console.error('Error deleting employee:', error);
+        alert('Failed to delete employee. Please try again.');
+      }
     }
   };
 
@@ -107,50 +148,74 @@ export function EmployeeDirectory() {
     return `EMP${String(nextIdNumber).padStart(3, '0')}`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newId = generateNextId(employees);
 
-    const newEmployee: Employee = {
+    const newEmployee = {
       ...formData,
       id: newId,
       salary: parseFloat(formData.salary) || 0,
       epfNo: formData.epfNo || '-',
       socsoNo: formData.socsoNo || '-',
       taxNo: formData.taxNo || '-',
-      profilePicture: formData.profilePicture
+      profilePicture: formData.profilePicture,
+      updatedAt: new Date().toISOString()
     };
-    setEmployees(prev => [newEmployee, ...prev]);
-    setIsModalOpen(false);
-    setFormData({
-      name: '',
-      position: '',
-      department: 'Technology',
-      email: '',
-      joinDate: new Date().toISOString().split('T')[0],
-      status: 'Active',
-      salary: '',
-      epfNo: '',
-      socsoNo: '',
-      taxNo: '',
-      profilePicture: ''
-    });
+    
+    try {
+      const { error: empError } = await supabase.from('employees').insert(newEmployee);
+      if (empError) throw empError;
+      
+      // Initialize default entitlements
+      const { error: entError } = await supabase.from('entitlements').insert({
+        employeeId: newId,
+        annual: 14,
+        medical: 14,
+        unpaid: 0,
+        updatedAt: new Date().toISOString()
+      });
+      if (entError) throw entError;
+
+      setIsModalOpen(false);
+      setFormData({
+        name: '',
+        position: '',
+        department: 'Technology',
+        email: '',
+        joinDate: new Date().toISOString().split('T')[0],
+        status: 'Active',
+        salary: '',
+        epfNo: '',
+        socsoNo: '',
+        taxNo: '',
+        profilePicture: ''
+      });
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      alert('Failed to add employee.');
+    }
   };
 
-  const handleProfilePictureUpload = (e: React.ChangeEvent<HTMLInputElement>, employeeId?: string) => {
+  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>, employeeId?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result as string;
       if (employeeId) {
-        setEmployees(prev => prev.map(emp => 
-          emp.id === employeeId ? { ...emp, profilePicture: base64String } : emp
-        ));
-        if (selectedEmployee?.id === employeeId) {
-          setSelectedEmployee(prev => prev ? { ...prev, profilePicture: base64String } : null);
+        try {
+          await supabase.from('employees').update({ 
+            profilePicture: base64String,
+            updatedAt: new Date().toISOString()
+          }).eq('id', employeeId);
+          if (selectedEmployee?.id === employeeId) {
+            setSelectedEmployee(prev => prev ? { ...prev, profilePicture: base64String } : null);
+          }
+        } catch (error) {
+          console.error('Error updating profile picture:', error);
         }
       } else {
         setFormData(prev => ({ ...prev, profilePicture: base64String }));
@@ -159,15 +224,16 @@ export function EmployeeDirectory() {
     reader.readAsDataURL(file);
   };
 
-  const handleLeaveSubmit = (e: React.FormEvent) => {
+  const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.employeeId) {
       alert('You must have an employee ID to request leave.');
       return;
     }
 
+    const newRequestId = `LR${Date.now()}`;
     const newRequest: LeaveRequest = {
-      id: `LR${String(leaveRequests.length + 1).padStart(3, '0')}`,
+      id: newRequestId,
       employeeId: user.employeeId,
       type: leaveFormData.type,
       startDate: leaveFormData.startDate,
@@ -177,22 +243,28 @@ export function EmployeeDirectory() {
       appliedDate: new Date().toISOString().split('T')[0]
     };
 
-    setLeaveRequests(prev => [newRequest, ...prev]);
-    
-    // Add notification for HR Admin
-    addNotification({
-      type: 'leave_request',
-      title: 'New Leave Request',
-      message: `${employees.find(e => e.id === user.employeeId)?.name} has submitted a ${leaveFormData.type} leave request.`,
-    });
+    try {
+      const { error } = await supabase.from('leaves').insert(newRequest);
+      if (error) throw error;
+      
+      // Add notification for HR Admin
+      addNotification({
+        type: 'leave_request',
+        title: 'New Leave Request',
+        message: `${employees.find(e => e.id === user.employeeId)?.name} has submitted a ${leaveFormData.type} leave request.`,
+      });
 
-    setIsLeaveRequestModalOpen(false);
-    setLeaveFormData({
-      type: 'Annual',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date().toISOString().split('T')[0],
-      reason: ''
-    });
+      setIsLeaveRequestModalOpen(false);
+      setLeaveFormData({
+        type: 'Annual',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
+        reason: ''
+      });
+    } catch (error) {
+      console.error('Error submitting leave:', error);
+      alert('Failed to submit leave request.');
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,17 +274,19 @@ export function EmployeeDirectory() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         const importedData = results.data as any[];
-        const newEmployees: Employee[] = [];
-        let currentList = [...employees];
+        let count = 0;
         let errorCount = 0;
 
+        let currentList = [...employees];
+        const employeesToInsert: any[] = [];
+        const entitlementsToInsert: any[] = [];
+
         importedData.forEach((row) => {
-          // Basic validation
           if (row.name && row.email && row.position && row.department) {
-            const nextId = generateNextId([...currentList, ...newEmployees]);
-            const emp: Employee = {
+            const nextId = generateNextId([...currentList]);
+            const emp = {
               id: nextId,
               name: row.name,
               email: row.email,
@@ -224,56 +298,70 @@ export function EmployeeDirectory() {
               epfNo: row.epfNo || '-',
               socsoNo: row.socsoNo || '-',
               taxNo: row.taxNo || '-',
+              updatedAt: new Date().toISOString()
             };
-            newEmployees.push(emp);
+            
+            employeesToInsert.push(emp);
+            entitlementsToInsert.push({
+              employeeId: nextId,
+              annual: 14,
+              medical: 14,
+              unpaid: 0,
+              updatedAt: new Date().toISOString()
+            });
+
+            currentList.push(emp as Employee);
+            count++;
           } else {
             errorCount++;
           }
         });
 
-        if (newEmployees.length > 0) {
-          setEmployees(prev => [...newEmployees, ...prev]);
-          setImportMessage({
-            text: `Successfully imported ${newEmployees.length} employees.${errorCount > 0 ? ` (${errorCount} rows skipped due to missing data)` : ''}`,
-            type: 'success'
-          });
+        if (count > 0) {
+          try {
+            const { error: empError } = await supabase.from('employees').insert(employeesToInsert);
+            if (empError) throw empError;
+            const { error: entError } = await supabase.from('entitlements').insert(entitlementsToInsert);
+            if (entError) throw entError;
+            setImportMessage({
+              text: `Successfully imported ${count} employees.${errorCount > 0 ? ` (${errorCount} rows skipped)` : ''}`,
+              type: 'success'
+            });
+          } catch (error) {
+            console.error('Error importing:', error);
+            setImportMessage({ text: 'Database error during import.', type: 'error' });
+          }
         } else {
-          setImportMessage({
-            text: 'No valid employee data found in the CSV file.',
-            type: 'error'
-          });
+          setImportMessage({ text: 'No valid data found.', type: 'error' });
         }
 
-        // Clear input
         if (fileInputRef.current) fileInputRef.current.value = '';
-        
-        // Clear message after 5 seconds
         setTimeout(() => setImportMessage(null), 5000);
       },
       error: (error) => {
-        setImportMessage({
-          text: `Error parsing CSV: ${error.message}`,
-          type: 'error'
-        });
+        setImportMessage({ text: `CSV Error: ${error.message}`, type: 'error' });
         setTimeout(() => setImportMessage(null), 5000);
       }
     });
   };
 
-  const handleLeaveAction = (requestId: string, newStatus: LeaveStatus) => {
-    const request = leaveRequests.find(r => r.id === requestId);
-    const emp = employees.find(e => e.id === request?.employeeId);
-    
-    setLeaveRequests(prev => prev.map(req => 
-      req.id === requestId ? { ...req, status: newStatus } : req
-    ));
-
-    if (request && emp) {
-      addNotification({
-        type: 'leave_request',
-        title: `Leave Request ${newStatus}`,
-        message: `Leave request for ${emp.name} (${request.type}) has been ${newStatus.toLowerCase()}.`,
-      });
+  const handleLeaveAction = async (requestId: string, newStatus: LeaveStatus) => {
+    try {
+      const { error } = await supabase.from('leaves').update({ status: newStatus }).eq('id', requestId);
+      if (error) throw error;
+      
+      const request = leaveRequests.find(r => r.id === requestId);
+      const emp = employees.find(e => e.id === request?.employeeId);
+      
+      if (request && emp) {
+        addNotification({
+          type: 'leave_request',
+          title: `Leave Request ${newStatus}`,
+          message: `Leave request for ${emp.name} (${request.type}) has been ${newStatus.toLowerCase()}.`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating leave status:', error);
     }
   };
 

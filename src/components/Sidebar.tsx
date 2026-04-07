@@ -21,9 +21,7 @@ const navItems = [
 ];
 
 export function Sidebar() {
-  const { user, switchRole } = useUser();
-  const [showRoleSwitcher, setShowRoleSwitcher] = React.useState(false);
-
+  const { user, logout } = useUser();
   const filteredNavItems = navItems.filter(item => 
     user && item.roles.includes(user.role)
   );
@@ -61,46 +59,35 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-white/10">
-        <div className="relative mb-4">
-          <button 
-            onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-lg hover:bg-white/10 transition-all text-left"
-          >
+        <div className="mb-4">
+          <div className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-left">
             <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white flex-shrink-0">
-              {user?.name.split(' ').map(n => n[0]).join('')}
+              {(user?.name || 'User').split(' ').map(n => n[0]).join('')}
             </div>
             <div className="overflow-hidden flex-1">
               <p className="text-sm font-semibold truncate">{user?.name}</p>
               <p className="text-xs text-blue-200 truncate">{user?.role}</p>
             </div>
-            <ChevronDown className={cn("w-4 h-4 text-blue-200 transition-transform", showRoleSwitcher && "rotate-180")} />
-          </button>
-
-          {showRoleSwitcher && (
-            <div className="absolute bottom-full left-0 w-full mb-2 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
-              <div className="p-2 text-xs font-bold text-gray-400 uppercase tracking-wider bg-gray-50">Switch Role (Demo)</div>
-              {(['HR Admin', 'Manager', 'Employee'] as UserRole[]).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => {
-                    switchRole(role);
-                    setShowRoleSwitcher(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors",
-                    user?.role === role ? "text-blue-600 font-bold bg-blue-50/50" : "text-gray-700"
-                  )}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
-        <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition-all">
+        <button 
+          onClick={logout}
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-blue-100 hover:bg-white/10 hover:text-white transition-all text-left"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Logout</span>
         </button>
+        
+        <div className="mt-4 px-4 py-2 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-widest text-blue-300 font-bold">Status</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Production</span>
+            </span>
+          </div>
+          <p className="text-[10px] text-blue-300/60 mt-1">v1.0.0 • Powered by Supabase</p>
+        </div>
       </div>
     </aside>
   );

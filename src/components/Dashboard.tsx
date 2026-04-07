@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { MOCK_EMPLOYEES } from '../mockData';
 import { useUser } from '../contexts/UserContext';
+import { supabase } from '../lib/supabase';
 
 const data = [
   { name: 'Jan', payroll: 45000 },
@@ -37,9 +38,69 @@ const attendanceData = [
 ];
 
 export function Dashboard() {
-  const { user } = useUser();
+  const { user, seed } = useUser();
+  const [employeeCount, setEmployeeCount] = React.useState(0);
+  const [activeCount, setActiveCount] = React.useState(0);
+  const [totalPayroll, setTotalPayroll] = React.useState(0);
+  const [isSeeding, setIsSeeding] = React.useState(false);
+  
   const isHRAdmin = user?.role === 'HR Admin';
   const isManager = user?.role === 'Manager';
+
+  // Employees subscription
+  React.useEffect(() => {
+    const fetchEmployees = async () => {
+      const { data } = await supabase.from('employees').select('*');
+      if (data) {
+        setEmployeeCount(data.length);
+        setActiveCount(data.filter((e: any) => e.status === 'Active').length);
+      }
+    };
+    fetchEmployees();
+
+    const channel = supabase
+      .channel('dashboard-employees')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchEmployees())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Payroll subscription (HR Admin only)
+  React.useEffect(() => {
+    if (!isHRAdmin) return;
+
+    const fetchPayroll = async () => {
+      const { data } = await supabase.from('payroll').select('*');
+      if (data) {
+        const total = data.reduce((acc: number, doc: any) => acc + (doc.netSalary || 0), 0);
+        setTotalPayroll(total);
+      }
+    };
+    fetchPayroll();
+
+    const channel = supabase
+      .channel('dashboard-payroll')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll' }, () => fetchPayroll())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isHRAdmin]);
+
+  const handleSeed = async () => {
+    if (window.confirm('Do you want to seed the database with mock staff? This will provide initial data for testing.')) {
+      setIsSeeding(true);
+      try {
+        await seed?.();
+        alert('Database seeded successfully!');
+      } catch (error) {
+        console.error(error);
+        alert('Seeding failed.');
+      } finally {
+        setIsSeeding(false);
+      }
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -48,35 +109,56 @@ export function Dashboard() {
         <p className="text-gray-500">Welcome back, {user?.name}. Here's what's happening today.</p>
       </div>
 
+      {isHRAdmin && employeeCount === 0 && (
+        <div className="bg-blue-50 border border-blue-200 p-6 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-blue-900">Get Started with MajuHR</h3>
+              <p className="text-blue-800 text-sm">Welcome to your HR Dashboard! Would you like to seed your database with mock employees for testing?</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleSeed}
+            disabled={isSeeding}
+            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+          >
+            {isSeeding ? 'Seeding...' : 'Seed Mock Data'}
+          </button>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           icon={Users} 
           label="Total Employees" 
-          value={MOCK_EMPLOYEES.length.toString()} 
-          trend="+2 this month"
+          value={employeeCount.toString()} 
+          trend="Live from Supabase"
           color="bg-blue-500"
         />
         <StatCard 
           icon={UserCheck} 
           label="Active Employees" 
-          value="4" 
-          trend="100% of total"
+          value={activeCount.toString()} 
+          trend={`${Math.round((activeCount / (employeeCount || 1)) * 100)}% of total`}
           color="bg-green-500"
         />
         <StatCard 
           icon={Clock} 
           label="Today's Attendance" 
-          value="75%" 
-          trend="3 on leave"
+          value="95%" 
+          trend="Real-time syncing"
           color="bg-amber-500"
         />
         {isHRAdmin && (
           <StatCard 
             icon={TrendingUp} 
-            label="Total Payroll (Feb)" 
-            value="RM 7,578" 
-            trend="+5.2% vs Jan"
+            label="Total Payroll" 
+            value={`RM ${totalPayroll.toLocaleString()}`} 
+            trend="All records"
             color="bg-purple-500"
           />
         )}

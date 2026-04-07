@@ -16,25 +16,65 @@ import {
   Calculator,
   Send
 } from 'lucide-react';
-import { MOCK_PAYROLL, MOCK_EMPLOYEES, MOCK_LEAVE_REQUESTS } from '../mockData';
 import { cn } from '../lib/utils';
 import { useUser } from '../contexts/UserContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
-
 import { useNotifications } from '../contexts/NotificationContext';
+import { supabase } from '../lib/supabase';
+import { PayrollRecord, Employee, LeaveRequest } from '../types';
 
 export function Payroll() {
-  const [selectedMonth, setSelectedMonth] = useState('2024-02');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'checking' | 'calculating' | 'finalizing' | 'completed'>('idle');
   const { user } = useUser();
   const { addNotification } = useNotifications();
 
+  // Supabase Subscriptions
+  useEffect(() => {
+    const fetchPayroll = async () => {
+      const { data } = await supabase.from('payroll').select('*');
+      if (data) setPayrollRecords(data as PayrollRecord[]);
+    };
+    fetchPayroll();
+    const channel = supabase.channel('payroll-records')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll' }, () => fetchPayroll())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      const { data } = await supabase.from('employees').select('*');
+      if (data) setEmployees(data as Employee[]);
+    };
+    fetchEmployees();
+    const channel = supabase.channel('payroll-employees')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchEmployees())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const fetchLeaves = async () => {
+      const { data } = await supabase.from('leaves').select('*');
+      if (data) setLeaveRequests(data as LeaveRequest[]);
+    };
+    fetchLeaves();
+    const channel = supabase.channel('payroll-leaves')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, () => fetchLeaves())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Dynamic calculations based on selected month
-  const monthlyPayroll = MOCK_PAYROLL.filter(p => p.month === selectedMonth);
+  const monthlyPayroll = payrollRecords.filter(p => p.month === selectedMonth);
   
   const stats = React.useMemo(() => {
     return monthlyPayroll.reduce((acc, curr) => ({
@@ -44,8 +84,8 @@ export function Payroll() {
     }), { gross: 0, statutory: 0, net: 0 });
   }, [monthlyPayroll]);
 
-  const pendingLeaves = MOCK_LEAVE_REQUESTS.filter(r => r.status === 'Pending').length;
-  const incompleteProfiles = MOCK_EMPLOYEES.filter(e => e.epfNo === '-' || e.taxNo === '-').length;
+  const pendingLeaves = leaveRequests.filter(r => r.status === 'Pending').length;
+  const incompleteProfiles = employees.filter(e => e.epfNo === '-' || e.taxNo === '-').length;
 
   const handleStartWizard = () => {
     setIsWizardOpen(true);
@@ -82,7 +122,7 @@ export function Payroll() {
       addNotification({
         type: 'payroll_milestone',
         title: 'Payroll Calculation Complete',
-        message: `Payroll calculation for ${selectedMonth} has been completed for ${MOCK_EMPLOYEES.length} employees.`,
+        message: `Payroll calculation for ${selectedMonth} has been completed for ${employees.length} employees.`,
       });
       nextStep();
     }, 2500);
@@ -101,8 +141,8 @@ export function Payroll() {
   };
 
   const generatePayslip = (employeeId: string, payrollId: string) => {
-    const emp = MOCK_EMPLOYEES.find(e => e.id === employeeId);
-    const pay = MOCK_PAYROLL.find(p => p.id === payrollId);
+    const emp = employees.find(e => e.id === employeeId);
+    const pay = payrollRecords.find(p => p.id === payrollId);
 
     if (!emp || !pay) return;
 
@@ -299,7 +339,7 @@ export function Payroll() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {monthlyPayroll.length > 0 ? monthlyPayroll.map((pay) => {
-                const emp = MOCK_EMPLOYEES.find(e => e.id === pay.employeeId);
+                const emp = employees.find(e => e.id === pay.employeeId);
                 return (
                   <tr key={pay.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
@@ -471,7 +511,7 @@ export function Payroll() {
                     {processingStatus === 'calculating' ? (
                       <div className="flex flex-col items-center justify-center py-12 space-y-4">
                         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                        <p className="text-gray-600 font-medium animate-pulse">Calculating payroll for {MOCK_EMPLOYEES.length} employees...</p>
+                        <p className="text-gray-600 font-medium animate-pulse">Calculating payroll for {employees.length} employees...</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-4">

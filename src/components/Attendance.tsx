@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -11,20 +11,52 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { MOCK_ATTENDANCE, MOCK_EMPLOYEES } from '../mockData';
 import { cn } from '../lib/utils';
-import { format, addDays, subDays } from 'date-fns';
+import { format } from 'date-fns';
+import { supabase } from '../lib/supabase';
+import { AttendanceRecord, Employee } from '../types';
 
 export function Attendance() {
-  const [currentDate, setCurrentDate] = useState(new Date('2024-03-20'));
+  const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10)); // Current date string
   const [searchTerm, setSearchTerm] = useState('');
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
-  const formattedDate = format(currentDate, 'yyyy-MM-dd');
-  
-  const dailyRecords = MOCK_ATTENDANCE.filter(record => record.date === formattedDate);
+  // Supabase Subscriptions
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      const { data } = await supabase.from('employees').select('*');
+      if (data) setEmployees(data as Employee[]);
+    };
+    fetchEmployees();
+
+    const channel = supabase
+      .channel('attendance-employees')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, () => fetchEmployees())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      const { data } = await supabase.from('attendance').select('*');
+      if (data) setAttendanceRecords(data as AttendanceRecord[]);
+    };
+    fetchAttendance();
+
+    const channel = supabase
+      .channel('attendance-records')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => fetchAttendance())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const dailyRecords = attendanceRecords.filter(record => record.date === currentDate);
   
   const filteredRecords = dailyRecords.filter(record => {
-    const emp = MOCK_EMPLOYEES.find(e => e.id === record.employeeId);
+    const emp = employees.find(e => e.id === record.employeeId);
     return emp?.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
            emp?.id.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -36,8 +68,17 @@ export function Attendance() {
     onLeave: dailyRecords.filter(r => r.status === 'On Leave').length,
   };
 
-  const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
-  const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
+  const handlePrevDay = () => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() - 1);
+    setCurrentDate(d.toISOString().slice(0, 10));
+  };
+  
+  const handleNextDay = () => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() + 1);
+    setCurrentDate(d.toISOString().slice(0, 10));
+  };
 
   return (
     <div className="space-y-8">
@@ -107,8 +148,8 @@ export function Attendance() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredRecords.map((record) => {
-                const emp = MOCK_EMPLOYEES.find(e => e.id === record.employeeId);
+                {filteredRecords.map((record) => {
+                  const emp = employees.find(e => e.id === record.employeeId);
                 return (
                   <tr key={record.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
