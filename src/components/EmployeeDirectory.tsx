@@ -70,7 +70,7 @@ export function EmployeeDirectory() {
     setIsSensitiveVisible(false);
   }, [selectedEmployee]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user } = useUser();
+  const { user, hasPermission } = useUser();
 
   const maskValue = (value: string) => {
     if (!value || value === '-') return '-';
@@ -79,8 +79,8 @@ export function EmployeeDirectory() {
 
   const canSeeSensitive = (emp: Employee | null) => {
     if (!emp) return false;
-    if (user?.role === 'HR Admin') return true;
-    if (user?.role === 'Manager') return true; // Managers can see their team? For now, let's say all managers can see.
+    // Deny-by-Default: Check for specific permissions in JWT claims
+    if (hasPermission('View_Salary') || hasPermission('Edit_Tax_Info')) return true;
     if (user?.employeeId === emp.id) return true; // Own data
     return false;
   };
@@ -503,7 +503,7 @@ export function EmployeeDirectory() {
           <p className="text-gray-500">Manage employees, view profiles, and handle leave requests.</p>
         </div>
         <div className="flex items-center gap-3">
-          {activeTab === 'directory' && user?.role === 'HR Admin' && (
+          {activeTab === 'directory' && hasPermission('Manage_Users') && (
             <>
               <input 
                 type="file" 
@@ -684,7 +684,7 @@ export function EmployeeDirectory() {
                       </td>
                       <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          {user?.role === 'HR Admin' && (
+                          {hasPermission('Manage_Users') && (
                             <button 
                               onClick={(e) => handleDelete(emp.id, e)}
                               className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-600"

@@ -23,7 +23,7 @@ export default function App() {
               <Route 
                 index 
                 element={
-                  <ProtectedRoute allowedRoles={['HR Admin', 'Manager', 'Employee']}>
+                  <ProtectedRoute allowedRoles={['Admin', 'Manager', 'Employee', 'Finance']}>
                     <Dashboard />
                   </ProtectedRoute>
                 } 
@@ -31,7 +31,7 @@ export default function App() {
               <Route 
                 path="employees" 
                 element={
-                  <ProtectedRoute allowedRoles={['HR Admin', 'Manager']}>
+                  <ProtectedRoute requiredPermission="Manage_Users" allowedRoles={['Admin', 'Manager']}>
                     <EmployeeDirectory />
                   </ProtectedRoute>
                 } 
@@ -39,7 +39,7 @@ export default function App() {
               <Route 
                 path="payroll" 
                 element={
-                  <ProtectedRoute allowedRoles={['HR Admin']}>
+                  <ProtectedRoute requiredPermission="View_Salary" allowedRoles={['Admin', 'Finance']}>
                     <Payroll />
                   </ProtectedRoute>
                 } 
@@ -47,7 +47,7 @@ export default function App() {
               <Route 
                 path="attendance" 
                 element={
-                  <ProtectedRoute allowedRoles={['HR Admin', 'Manager', 'Employee']}>
+                  <ProtectedRoute allowedRoles={['Admin', 'Manager', 'Employee']}>
                     <Attendance />
                   </ProtectedRoute>
                 } 

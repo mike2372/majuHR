@@ -24,6 +24,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { supabase } from '../lib/supabase';
 import { PayrollRecord, Employee, LeaveRequest } from '../types';
+import { calculatePayroll } from '../lib/payrollEngine';
+import { myInvoisService } from '../lib/myInvoisService';
+import { payrollService } from '../lib/payrollService';
+import { validateEmployeesForPayroll } from '../lib/workerValidation';
+import { payslipService } from '../lib/payslipService';
 
 export function Payroll() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // Default to current month
@@ -33,7 +38,7 @@ export function Payroll() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [processingStatus, setProcessingStatus] = useState<'idle' | 'checking' | 'calculating' | 'finalizing' | 'completed'>('idle');
-  const { user } = useUser();
+  const { user, hasPermission } = useUser();
   const { addNotification } = useNotifications();
 
   // Supabase Subscriptions
@@ -115,17 +120,75 @@ export function Payroll() {
     }, 2000);
   };
 
-  const runCalculation = () => {
+  const runCalculation = async () => {
+    // 1. Validate mandatory fields for foreign workers
+    const validation = validateEmployeesForPayroll(employees);
+    if (!validation.isValid) {
+      addNotification({
+        type: 'error',
+        title: 'Validation Failed',
+        message: `${validation.errors.length} data issues found. Please update employee profiles.`,
+      });
+      setWizardStep(1); // Force return to step 1
+      return;
+    }
+
     setProcessingStatus('calculating');
-    setTimeout(() => {
+    
+    try {
+      // Process calculations for all employees in the selected month
+      for (const emp of employees) {
+        const record = {
+          employeeId: emp.id,
+          month: selectedMonth,
+          basicSalary: emp.salary,
+          allowances: 0, 
+          deductions: 0,
+          isForeignWorker: emp.isForeignWorker
+        };
+        
+        await payrollService.processPayroll(record);
+      }
+
       setProcessingStatus('idle');
       addNotification({
         type: 'payroll_milestone',
         title: 'Payroll Calculation Complete',
-        message: `Payroll calculation for ${selectedMonth} has been completed for ${employees.length} employees.`,
+        message: `Payroll calculation for ${selectedMonth} has been completed for ${employees.length} employees using 2026 Statutory Rates.`,
       });
       nextStep();
-    }, 2500);
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'Calculation Error',
+        message: error.message,
+      });
+      setProcessingStatus('idle');
+    }
+  };
+
+  const submitToLHDN = async (payrollId: string, employeeId: string) => {
+    try {
+      addNotification({
+        type: 'info',
+        title: 'LHDN Submission',
+        message: 'Submitting self-billed e-invoice to LHDN...',
+      });
+      
+      const result = await myInvoisService.submitSelfBilledInvoice(payrollId, employeeId);
+      
+      addNotification({
+        type: 'success',
+        title: 'LHDN Validated',
+        message: `E-invoice ${result.uuid} successfully registered with LHDN.`,
+      });
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'LHDN Error',
+        message: error.message,
+      });
+    }
   };
 
   const finalizePayroll = () => {
@@ -140,110 +203,28 @@ export function Payroll() {
     }, 2000);
   };
 
-  const generatePayslip = (employeeId: string, payrollId: string) => {
-    const emp = employees.find(e => e.id === employeeId);
-    const pay = payrollRecords.find(p => p.id === payrollId);
-
-    if (!emp || !pay) return;
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(30, 64, 175); // #1e40af
-    doc.text('MajuHR', 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text('Enterprise Human Resource Management System', 20, 27);
-    
-    doc.setDrawColor(229, 231, 235);
-    doc.line(20, 35, pageWidth - 20, 35);
-
-    // Payslip Title
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text('SALARY SLIP', pageWidth / 2, 45, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Month: ${pay.month}`, pageWidth / 2, 52, { align: 'center' });
-
-    // Employee Details
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Employee Details', 20, 65);
-    doc.setFont('helvetica', 'normal');
-    
-    const details = [
-      ['Employee Name:', emp.name],
-      ['Employee ID:', emp.id],
-      ['Position:', emp.position],
-      ['Department:', emp.department],
-      ['EPF No:', emp.epfNo],
-      ['SOCSO No:', emp.socsoNo],
-      ['Tax No:', emp.taxNo]
-    ];
-
-    let yPos = 72;
-    details.forEach(([label, value]) => {
-      doc.text(label, 20, yPos);
-      doc.text(value, 60, yPos);
-      yPos += 7;
-    });
-
-    // Financial Table
-    (doc as any).autoTable({
-      startY: 125,
-      head: [['Description', 'Earnings (RM)', 'Deductions (RM)']],
-      body: [
-        ['Basic Salary', pay.basicSalary.toFixed(2), ''],
-        ['Allowances', pay.allowances.toFixed(2), ''],
-        ['EPF (Employee)', '', pay.epfEmployee.toFixed(2)],
-        ['SOCSO (Employee)', '', pay.socsoEmployee.toFixed(2)],
-        ['EIS (Employee)', '', pay.eisEmployee.toFixed(2)],
-        ['PCB (Income Tax)', '', pay.pcb.toFixed(2)],
-        ['Other Deductions', '', pay.deductions.toFixed(2)],
-      ],
-      theme: 'striped',
-      headStyles: { fillStyle: [30, 64, 175] },
-      styles: { fontSize: 9 }
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY;
-
-    // Totals
-    doc.setFont('helvetica', 'bold');
-    doc.text('Total Earnings:', 120, finalY + 15);
-    doc.text(`RM ${(pay.basicSalary + pay.allowances).toFixed(2)}`, 170, finalY + 15, { align: 'right' });
-    
-    doc.text('Total Deductions:', 120, finalY + 22);
-    doc.text(`RM ${(pay.epfEmployee + pay.socsoEmployee + pay.eisEmployee + pay.pcb + pay.deductions).toFixed(2)}`, 170, finalY + 22, { align: 'right' });
-
-    doc.setFillColor(243, 244, 246);
-    doc.rect(115, finalY + 28, 75, 12, 'F');
-    doc.setFontSize(12);
-    doc.setTextColor(30, 64, 175);
-    doc.text('NET SALARY:', 120, finalY + 36);
-    doc.text(`RM ${pay.netSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 185, finalY + 36, { align: 'right' });
-
-    // Employer Contributions
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Employer Contributions (Statutory)', 20, finalY + 15);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`EPF: RM ${pay.epfEmployer.toFixed(2)}`, 20, finalY + 22);
-    doc.text(`SOCSO: RM ${pay.socsoEmployer.toFixed(2)}`, 20, finalY + 27);
-    doc.text(`EIS: RM ${pay.eisEmployer.toFixed(2)}`, 20, finalY + 32);
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text('This is a computer-generated document and does not require a signature.', pageWidth / 2, 280, { align: 'center' });
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: 'center' });
-
-    doc.save(`Payslip_${emp.name.replace(/\s+/g, '_')}_${pay.month}.pdf`);
+  const generatePayslip = async (employeeId: string, payrollId: string) => {
+    try {
+      addNotification({
+        type: 'info',
+        title: 'Security Notice',
+        message: 'Generating encrypted payslip. Your password is the last 4 digits of your IC + Birth Year.',
+      });
+      
+      await payslipService.generateSecurePayslip(payrollId, employeeId);
+      
+      addNotification({
+        type: 'success',
+        title: 'Payslip Ready',
+        message: 'Encrypted payslip has been generated and opened for download.',
+      });
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'Generation Failed',
+        message: error.message,
+      });
+    }
   };
 
   return (
@@ -258,7 +239,7 @@ export function Payroll() {
             <Download className="w-4 h-4" />
             Export Reports
           </button>
-          {user?.role === 'HR Admin' && (
+          {hasPermission('View_Salary') && (
             <button 
               onClick={handleStartWizard}
               className="bg-[#1e40af] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
@@ -319,8 +300,8 @@ export function Payroll() {
           </div>
           <div className="flex gap-2 w-full md:w-auto">
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" />
-              Status: Processed
+              <ShieldCheck className="w-3 h-3" />
+              LHDN 2026 Engine Active
             </span>
           </div>
         </div>
@@ -373,21 +354,36 @@ export function Payroll() {
                     <td className="px-6 py-4 text-sm text-gray-600">RM {pay.pcb.toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm font-bold text-blue-600">RM {pay.netSalary.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <button className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-semibold transition-colors">
-                          <FileText className="w-4 h-4" />
-                          View
-                        </button>
-                        {user?.role === 'HR Admin' && (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
                           <button 
                             onClick={() => generatePayslip(pay.employeeId, pay.id)}
-                            className="flex items-center gap-2 text-green-600 hover:text-green-800 text-sm font-semibold transition-colors"
-                            title="Download PDF Payslip"
+                            className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm font-semibold transition-colors"
                           >
-                            <Download className="w-4 h-4" />
-                            PDF
+                            <FileText className="w-4 h-4" />
+                            Payslip
                           </button>
-                        )}
+                          <button 
+                            onClick={() => submitToLHDN(pay.id, pay.employeeId)}
+                            className="flex items-center gap-2 text-amber-600 hover:text-amber-800 text-sm font-semibold transition-colors"
+                            title="Submit Self-Billed E-Invoice to LHDN"
+                          >
+                            <Send className="w-4 h-4" />
+                            e-Invoice
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          {(pay as any).status === 'Validated' && (
+                            <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[10px] font-bold border border-green-100">
+                              VALIDATED
+                            </span>
+                          )}
+                          {(pay as any).isOverride && (
+                            <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px] font-bold border border-amber-100">
+                              OVERRIDE
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -468,7 +464,7 @@ export function Payroll() {
                     <div className="space-y-3">
                       {[
                         { label: 'Employee Statutory Details (EPF/SOCSO/Tax)', status: incompleteProfiles > 0 ? 'warning' : 'ready', detail: incompleteProfiles > 0 ? `${incompleteProfiles} profiles incomplete` : 'All profiles complete' },
-                        { label: 'Monthly Attendance Records', status: 'ready', detail: 'All records verified' },
+                        { label: 'Foreign Worker Compliance', status: validateEmployeesForPayroll(employees).isValid ? 'ready' : 'warning', detail: validateEmployeesForPayroll(employees).isValid ? 'All permits verified' : 'Missing passport/permit data' },
                         { label: 'Approved Leave Requests', status: pendingLeaves > 0 ? 'warning' : 'ready', detail: pendingLeaves > 0 ? `${pendingLeaves} requests pending approval` : 'All leaves processed' },
                         { label: 'Overtime & Allowance Claims', status: 'ready', detail: 'No pending claims' }
                       ].map((item, i) => (

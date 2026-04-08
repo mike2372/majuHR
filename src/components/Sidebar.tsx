@@ -11,20 +11,28 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useUser } from '../contexts/UserContext';
-import { UserRole } from '../types';
+import { UserRole, Permission } from '../types';
 
-const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['HR Admin', 'Manager', 'Employee'] },
-  { icon: Users, label: 'Employee Directory', path: '/employees', roles: ['HR Admin', 'Manager'] },
-  { icon: CreditCard, label: 'Payroll', path: '/payroll', roles: ['HR Admin'] },
-  { icon: Clock, label: 'Attendance', path: '/attendance', roles: ['HR Admin', 'Manager', 'Employee'] },
+const navItems: { icon: any, label: string, path: string, roles: UserRole[], permission?: Permission }[] = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/', roles: ['Admin', 'Manager', 'Employee', 'Finance'] },
+  { icon: Users, label: 'Employee Directory', path: '/employees', roles: ['Admin', 'Manager'], permission: 'Manage_Users' },
+  { icon: CreditCard, label: 'Payroll', path: '/payroll', roles: ['Admin', 'Finance'], permission: 'View_Salary' },
+  { icon: Clock, label: 'Attendance', path: '/attendance', roles: ['Admin', 'Manager', 'Employee'] },
 ];
 
 export function Sidebar() {
-  const { user, logout } = useUser();
-  const filteredNavItems = navItems.filter(item => 
-    user && item.roles.includes(user.role)
-  );
+  const { user, logout, hasPermission } = useUser();
+  const filteredNavItems = navItems.filter(item => {
+    if (!user) return false;
+    
+    // Deny-by-Default: If a permission is required, check it first via JWT claims
+    if (item.permission) {
+      return hasPermission(item.permission);
+    }
+    
+    // Fallback to role check if no specific permission is required
+    return item.roles.includes(user.role);
+  });
 
   return (
     <aside className="w-64 bg-[#1e40af] text-white flex flex-col h-screen sticky top-0">

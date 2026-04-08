@@ -1,4 +1,6 @@
-export type UserRole = 'HR Admin' | 'Manager' | 'Employee';
+export type UserRole = 'Admin' | 'Manager' | 'Employee' | 'Finance' | 'HR Admin';
+
+export type Permission = 'View_Salary' | 'Edit_Tax_Info' | 'Manage_Users' | 'Approve_Leave';
 
 export interface User {
   id: string;
@@ -6,6 +8,7 @@ export interface User {
   email: string;
   role: UserRole;
   employeeId?: string;
+  permissions?: Permission[];
 }
 
 export type EmployeeStatus = 'Active' | 'Resigned' | 'On Leave';
@@ -22,6 +25,11 @@ export interface Employee {
   epfNo: string;
   socsoNo: string;
   taxNo: string;
+  isForeignWorker?: boolean;
+  passportNo?: string;
+  permitExpiry?: string;
+  icNo?: string;
+  dob?: string;
   profilePicture?: string;
 }
 

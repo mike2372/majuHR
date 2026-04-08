@@ -38,13 +38,15 @@ const attendanceData = [
 ];
 
 export function Dashboard() {
-  const { user, seed } = useUser();
+  const { user, seed, hasPermission } = useUser();
   const [employeeCount, setEmployeeCount] = React.useState(0);
   const [activeCount, setActiveCount] = React.useState(0);
   const [totalPayroll, setTotalPayroll] = React.useState(0);
   const [isSeeding, setIsSeeding] = React.useState(false);
   
-  const isHRAdmin = user?.role === 'HR Admin';
+  const canViewPayroll = hasPermission('View_Salary');
+  const canManageUsers = hasPermission('Manage_Users');
+  const isAdmin = user?.role === 'Admin';
   const isManager = user?.role === 'Manager';
 
   // Employees subscription
@@ -66,9 +68,9 @@ export function Dashboard() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Payroll subscription (HR Admin only)
+  // Payroll subscription (if permitted)
   React.useEffect(() => {
-    if (!isHRAdmin) return;
+    if (!canViewPayroll) return;
 
     const fetchPayroll = async () => {
       const { data } = await supabase.from('payroll').select('*');
@@ -85,7 +87,7 @@ export function Dashboard() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isHRAdmin]);
+  }, [canViewPayroll]);
 
   const handleSeed = async () => {
     if (window.confirm('Do you want to seed the database with mock staff? This will provide initial data for testing.')) {
@@ -109,7 +111,7 @@ export function Dashboard() {
         <p className="text-gray-500">Welcome back, {user?.name}. Here's what's happening today.</p>
       </div>
 
-      {isHRAdmin && employeeCount === 0 && (
+      {canManageUsers && employeeCount === 0 && (
         <div className="bg-blue-50 border border-blue-200 p-6 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
@@ -153,7 +155,7 @@ export function Dashboard() {
           trend="Real-time syncing"
           color="bg-amber-500"
         />
-        {isHRAdmin && (
+        {canViewPayroll && (
           <StatCard 
             icon={TrendingUp} 
             label="Total Payroll" 
@@ -165,8 +167,8 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Payroll Trend - Only for HR Admin */}
-        {isHRAdmin && (
+        {/* Payroll Trend - Only if permitted */}
+        {canViewPayroll && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold mb-6">Payroll Expenditure Trend (RM)</h3>
             <div className="h-80">
@@ -185,8 +187,8 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* Attendance Rate - For HR Admin and Manager */}
-        {(isHRAdmin || isManager) && (
+        {/* Attendance Rate - For Admin and Manager */}
+        {(isAdmin || isManager) && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold mb-6">Weekly Attendance Rate (%)</h3>
             <div className="h-80">

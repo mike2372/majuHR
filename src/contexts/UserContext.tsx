@@ -1,10 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { User, UserRole } from '../types';
+import { User, UserRole, Permission } from '../types';
+import { hasPermission as checkPermission, ROLE_PERMISSIONS } from '../lib/rbac';
 
 interface UserContextType {
   user: User | null;
   loading: boolean;
+  /** JWT app_metadata claims object — the raw source of truth for permissions. */
+  jwtClaims: Record<string, unknown> | null;
+  /**
+   * Deny-by-Default permission check.
+   * Returns true ONLY if the specific permission is found in the user's JWT claims.
+   */
+  hasPermission: (permission: Permission) => boolean;
   login: (email: string, pass: string) => Promise<void>;
   signUp: (email: string, pass: string, name: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -17,6 +25,8 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Raw JWT app_metadata claims. Permissions live here — they cannot be spoofed by the user. */
+  const [jwtClaims, setJwtClaims] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -27,6 +37,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (error) console.error('Error getting session:', error);
 
         if (session?.user && mounted) {
+          // Extract raw JWT app_metadata — this is the trusted claims source
+          const claims = session.user.app_metadata as Record<string, unknown>;
+          setJwtClaims(claims ?? null);
           await loadUserProfile(session.user.id);
         }
       } catch (err) {
@@ -43,10 +56,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         try {
           if (event === 'SIGNED_OUT') {
             setUser(null);
+            setJwtClaims(null);
             return;
           }
 
           if (session?.user) {
+            // Refresh JWT claims on every auth state change (e.g. TOKEN_REFRESHED)
+            const claims = session.user.app_metadata as Record<string, unknown>;
+            setJwtClaims(claims ?? null);
             await loadUserProfile(session.user.id);
           }
         } catch (err) {
@@ -69,16 +86,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (userData) {
+      const role = userData.role as UserRole;
+      // Derive permissions from the role as a fallback, but JWT claims are the
+      // authoritative source used by hasPermission() at runtime.
+      const permissions = ROLE_PERMISSIONS[role] ?? [];
       setUser({
         id: userId,
         name: userData.name,
         email: userData.email,
-        role: userData.role as UserRole,
+        role,
         employeeId: userData.employeeId,
+        permissions,
       });
     }
     // If no profile yet, don't change user state - it will be set after signUp creates the profile
   };
+
+  /**
+   * Deny-by-Default: Checks the user's JWT app_metadata claims.
+   * Returns true ONLY if the specific permission string is explicitly present.
+   * Falls back to role-based permissions if JWT claims are not yet populated
+   * (e.g. before the database trigger runs for a new user).
+   */
+  const hasPermission = useCallback(
+    (permission: Permission): boolean => {
+      // Primary check: use JWT app_metadata (cannot be spoofed by the client)
+      if (jwtClaims) {
+        return checkPermission(jwtClaims, permission);
+      }
+      // Fallback: use in-memory permissions derived from role (for first-login edge cases)
+      if (user?.permissions) {
+        return user.permissions.includes(permission);
+      }
+      // Deny-by-Default: no claims, no permissions
+      return false;
+    },
+    [jwtClaims, user]
+  );
 
   const login = async (email: string, pass: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -86,7 +130,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       password: pass,
     });
     if (error) throw error;
-    if (data.user) {
+    if (data.user && data.session) {
+      const claims = data.user.app_metadata as Record<string, unknown>;
+      setJwtClaims(claims ?? null);
       await loadUserProfile(data.user.id);
     }
   };
@@ -117,7 +163,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       employeeId = empData[0].id;
     } else {
-      preassignedRole = 'HR Admin';
+      preassignedRole = 'Admin';
     }
 
     // 3. Create auth user
@@ -227,7 +273,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
         employeeId = empData[0].id;
       } else {
-        preassignedRole = 'HR Admin';
+        preassignedRole = 'Admin';
       }
 
       await supabase.from('users').insert({
@@ -268,7 +314,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ user, loading, login, signUp, loginWithGoogle, logout, seed }}>
+    <UserContext.Provider value={{ user, loading, jwtClaims, hasPermission, login, signUp, loginWithGoogle, logout, seed }}>
       {children}
     </UserContext.Provider>
   );
