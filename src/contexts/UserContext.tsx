@@ -87,9 +87,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     if (userData) {
       const role = userData.role as UserRole;
-      // Derive permissions from the role as a fallback, but JWT claims are the
-      // authoritative source used by hasPermission() at runtime.
       const permissions = ROLE_PERMISSIONS[role] ?? [];
+      
+      let faceDescriptor = undefined;
+      if (userData.employeeId) {
+        const { data: empData } = await supabase
+          .from('employees')
+          .select('face_descriptor')
+          .eq('id', userData.employeeId)
+          .maybeSingle();
+        if (empData) faceDescriptor = empData.face_descriptor;
+      }
+
       setUser({
         id: userId,
         name: userData.name,
@@ -97,6 +106,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         role,
         employeeId: userData.employeeId,
         permissions,
+        faceDescriptor,
       });
     }
     // If no profile yet, don't change user state - it will be set after signUp creates the profile

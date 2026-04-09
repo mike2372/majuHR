@@ -9,18 +9,22 @@ import {
   Search,
   Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Globe,
+  LayoutList
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { AttendanceRecord, Employee } from '../types';
+import { RemoteWorkTab } from './RemoteWorkTab';
 
 export function Attendance() {
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().slice(0, 10)); // Current date string
   const [searchTerm, setSearchTerm] = useState('');
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [activeTab, setActiveTab] = useState<'log' | 'remote'>('log');
 
   // Supabase Subscriptions
   useEffect(() => {
@@ -106,7 +110,33 @@ export function Attendance() {
         </div>
       </div>
 
-      {/* Stats Summary */}
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        <button 
+          onClick={() => setActiveTab('log')}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+            activeTab === 'log' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+          )}
+        >
+          <LayoutList className="w-4 h-4" />
+          Attendance Log
+        </button>
+        <button 
+          onClick={() => setActiveTab('remote')}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+            activeTab === 'remote' ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+          )}
+        >
+          <Globe className="w-4 h-4" />
+          Remote Work
+        </button>
+      </div>
+
+      {activeTab === 'log' ? (
+        <>
+          {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <AttendanceStat label="Present" value={stats.present.toString()} color="text-green-600" bg="bg-green-50" icon={UserCheck} />
         <AttendanceStat label="Late" value={stats.late.toString()} color="text-amber-600" bg="bg-amber-50" icon={Clock} />
@@ -144,6 +174,7 @@ export function Attendance() {
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Check Out</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Work Hours</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
               </tr>
             </thead>
@@ -189,6 +220,16 @@ export function Attendance() {
                         {record.status}
                       </span>
                     </td>
+                    <td className="px-6 py-4">
+                      {record.checkInLat ? (
+                        <div className="flex items-center gap-1 text-xs text-blue-600 font-medium">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span title={`Lat: ${record.checkInLat}, Lng: ${record.checkInLng}`}>Captured</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
                         <MoreHorizontal className="w-4 h-4" />
@@ -209,6 +250,10 @@ export function Attendance() {
           </div>
         )}
       </div>
+        </>
+      ) : (
+        <RemoteWorkTab />
+      )}
     </div>
   );
 }

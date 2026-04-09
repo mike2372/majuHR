@@ -3,8 +3,11 @@ import {
   Users, 
   UserCheck, 
   TrendingUp,
-  Clock
+  Clock,
+  MapPin,
+  Globe
 } from 'lucide-react';
+import { AttendanceWidget } from './AttendanceWidget';
 import { 
   BarChart, 
   Bar, 
@@ -16,7 +19,6 @@ import {
   LineChart,
   Line
 } from 'recharts';
-import { MOCK_EMPLOYEES } from '../mockData';
 import { useUser } from '../contexts/UserContext';
 import { supabase } from '../lib/supabase';
 
@@ -43,6 +45,7 @@ export function Dashboard() {
   const [activeCount, setActiveCount] = React.useState(0);
   const [totalPayroll, setTotalPayroll] = React.useState(0);
   const [isSeeding, setIsSeeding] = React.useState(false);
+  const [isRemoteAuthorized, setIsRemoteAuthorized] = React.useState(false);
   
   const canViewPayroll = hasPermission('View_Salary');
   const canManageUsers = hasPermission('Manage_Users');
@@ -67,6 +70,26 @@ export function Dashboard() {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Remote authorization check
+  React.useEffect(() => {
+    if (!user?.employeeId) return;
+    
+    const checkRemoteAuth = async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data } = await supabase
+        .from('remote_work_requests')
+        .select('status')
+        .eq('employee_id', user.employeeId)
+        .eq('date', today)
+        .eq('status', 'Approved')
+        .maybeSingle();
+      
+      if (data) setIsRemoteAuthorized(true);
+    };
+    
+    checkRemoteAuth();
+  }, [user]);
 
   // Payroll subscription (if permitted)
   React.useEffect(() => {
@@ -129,6 +152,49 @@ export function Dashboard() {
           >
             {isSeeding ? 'Seeding...' : 'Seed Mock Data'}
           </button>
+        </div>
+      )}
+
+      {/* Attendance Widget for Current User */}
+      {!isAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <AttendanceWidget />
+          </div>
+          <div className="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-2xl text-white relative overflow-hidden shadow-xl">
+            <div className="relative z-10">
+              <h3 className="text-2xl font-bold mb-2">Welcome to your workspace</h3>
+              <p className="text-blue-100 mb-6 max-w-md">Access your payroll, manage leave, and track your attendance with real-time GPS verification.</p>
+              <div className="flex gap-4">
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
+                  <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Office Hours</p>
+                  <p className="font-bold">09:00 - 18:00</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
+                  <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Your Department</p>
+                  <p className="font-bold">{user?.role === 'Employee' ? 'Operations' : user?.role}</p>
+                </div>
+                {isRemoteAuthorized && (
+                  <div className="bg-emerald-400/20 backdrop-blur-md p-4 rounded-xl border border-emerald-400/30 flex items-center gap-3">
+                    <Globe className="w-5 h-5 text-emerald-300" />
+                    <div>
+                      <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest leading-none mb-1">Status</p>
+                      <p className="font-bold text-emerald-100">Remote Work Authorized</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+              <Clock className="w-64 h-64" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mb-8">
+           <AttendanceWidget />
         </div>
       )}
 
