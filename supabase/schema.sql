@@ -107,13 +107,29 @@ ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated read attendance" ON attendance FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated write attendance" ON attendance FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+CREATE TABLE IF NOT EXISTS remote_work_requests (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "employee_id" TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  date TEXT NOT NULL,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'Pending',
+  "resolved_by" TEXT,
+  "created_at" TEXT DEFAULT now()::text
+);
+
 ALTER TABLE entitlements ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated read entitlements" ON entitlements FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated write entitlements" ON entitlements FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated update entitlements" ON entitlements FOR UPDATE USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated delete entitlements" ON entitlements FOR DELETE USING (auth.role() = 'authenticated');
 
+ALTER TABLE remote_work_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated read remote_work" ON remote_work_requests FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated write remote_work" ON remote_work_requests FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated update remote_work" ON remote_work_requests FOR UPDATE USING (auth.role() = 'authenticated');
+
 ALTER PUBLICATION supabase_realtime ADD TABLE employees;
+ALTER PUBLICATION supabase_realtime ADD TABLE remote_work_requests;
 ALTER PUBLICATION supabase_realtime ADD TABLE payroll;
 ALTER PUBLICATION supabase_realtime ADD TABLE leaves;
 ALTER PUBLICATION supabase_realtime ADD TABLE attendance;

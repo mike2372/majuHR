@@ -50,13 +50,28 @@ export function ProtectedRoute({ children, requiredPermission, allowedRoles }: P
       <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
         <div className="bg-red-50 p-6 rounded-2xl border border-red-100 max-w-md">
           <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
-          <p className="text-red-700 mb-6">
+          <p className="text-red-700 mb-4">
             You do not have the required permissions to view this page. 
-            Please contact your HR administrator if you believe this is an error.
           </p>
+          
+          <div className="bg-white/50 rounded-xl p-4 mb-6 text-left border border-red-200">
+            <p className="text-xs font-bold text-red-800 uppercase mb-2 tracking-wider">Session Diagnostics</p>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-gray-700">
+                <span className="text-gray-400">Current Role:</span> {user?.role || 'None'}
+              </p>
+              <p className="text-sm font-medium text-gray-700">
+                <span className="text-gray-400">Required:</span> {requiredPermission || 'None (Role Check)'}
+              </p>
+              <p className="text-xs text-gray-500 break-all">
+                <span className="font-bold">Active Permissions:</span> {JSON.stringify(user?.permissions || [])}
+              </p>
+            </div>
+          </div>
+
           <button 
             onClick={() => window.location.href = '/'}
-            className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+            className="w-full bg-red-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200"
           >
             Return to Dashboard
           </button>

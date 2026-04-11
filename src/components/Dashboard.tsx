@@ -157,35 +157,35 @@ export function Dashboard() {
 
       {/* Attendance Widget for Current User */}
       {!isAdmin && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           <div className="lg:col-span-1">
             <AttendanceWidget />
           </div>
-          <div className="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-2xl text-white relative overflow-hidden shadow-xl">
+          <div className="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 p-6 lg:p-8 rounded-2xl text-white relative overflow-hidden shadow-xl">
             <div className="relative z-10">
-              <h3 className="text-2xl font-bold mb-2">Welcome to your workspace</h3>
-              <p className="text-blue-100 mb-6 max-w-md">Access your payroll, manage leave, and track your attendance with real-time GPS verification.</p>
-              <div className="flex gap-4">
-                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
-                  <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Office Hours</p>
-                  <p className="font-bold">09:00 - 18:00</p>
+              <h3 className="text-xl lg:text-2xl font-bold mb-2">Welcome to your workspace</h3>
+              <p className="text-blue-100 mb-6 max-w-md text-sm lg:text-base">Access your payroll, manage leave, and track your attendance with real-time GPS verification.</p>
+              <div className="flex flex-wrap gap-3 lg:gap-4">
+                <div className="bg-white/10 backdrop-blur-md p-3 lg:p-4 rounded-xl border border-white/20 flex-1 min-w-[120px]">
+                  <p className="text-[10px] lg:text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Office Hours</p>
+                  <p className="font-bold text-sm lg:text-base">09:00 - 18:00</p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
-                  <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Your Department</p>
-                  <p className="font-bold">{user?.role === 'Employee' ? 'Operations' : user?.role}</p>
+                <div className="bg-white/10 backdrop-blur-md p-3 lg:p-4 rounded-xl border border-white/20 flex-1 min-w-[120px]">
+                  <p className="text-[10px] lg:text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">Your Department</p>
+                  <p className="font-bold text-sm lg:text-base">{user?.role === 'Employee' ? 'Operations' : user?.role}</p>
                 </div>
                 {isRemoteAuthorized && (
-                  <div className="bg-emerald-400/20 backdrop-blur-md p-4 rounded-xl border border-emerald-400/30 flex items-center gap-3">
-                    <Globe className="w-5 h-5 text-emerald-300" />
+                  <div className="bg-emerald-400/20 backdrop-blur-md p-3 lg:p-4 rounded-xl border border-emerald-400/30 flex items-center gap-3 w-full lg:w-auto">
+                    <Globe className="w-4 h-4 lg:w-5 lg:h-5 text-emerald-300" />
                     <div>
                       <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-widest leading-none mb-1">Status</p>
-                      <p className="font-bold text-emerald-100">Remote Work Authorized</p>
+                      <p className="font-bold text-xs lg:text-sm text-emerald-100">Remote Work Authorized</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-            <div className="absolute right-[-20px] bottom-[-20px] opacity-10">
+            <div className="absolute right-[-20px] bottom-[-20px] opacity-10 hidden lg:block">
               <Clock className="w-64 h-64" />
             </div>
           </div>
@@ -199,7 +199,7 @@ export function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <StatCard 
           icon={Users} 
           label="Total Employees" 

@@ -238,6 +238,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         redirectTo: window.location.origin,
       },
     });
+    
     if (error) throw error;
   };
 
