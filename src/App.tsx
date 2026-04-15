@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeDirectory } from './components/EmployeeDirectory';
@@ -13,10 +13,10 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 export default function App() {
   return (
-    <UserProvider>
+    <HashRouter>
+      <UserProvider>
       <NotificationProvider>
-        <BrowserRouter>
-          <Routes>
+        <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/" element={<Layout />}>
@@ -53,9 +53,9 @@ export default function App() {
                 } 
               />
             </Route>
-          </Routes>
-        </BrowserRouter>
+        </Routes>
       </NotificationProvider>
     </UserProvider>
+    </HashRouter>
   );
 }
