@@ -34,20 +34,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const initSession = async () => {
+      console.log('UserContext: Initializing session...');
+      const timeout = setTimeout(() => {
+        if (mounted && loading) {
+          console.warn('UserContext: Session initialization timed out after 10s. Forcing loading state to false.');
+          setLoading(false);
+        }
+      }, 10000);
+
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) console.error('Error getting session:', error);
+        if (error) {
+          console.error('UserContext: Error getting session:', error);
+        }
 
         if (session?.user && mounted) {
+          console.log('UserContext: Session found for user:', session.user.id);
           // Extract raw JWT app_metadata — this is the trusted claims source
           const claims = session.user.app_metadata as Record<string, unknown>;
           setJwtClaims(claims ?? null);
           await loadUserProfile(session.user.id);
+        } else {
+          console.log('UserContext: No active session found.');
         }
       } catch (err) {
-        console.error('Unexpected error during session init:', err);
+        console.error('UserContext: Unexpected error during session init:', err);
       } finally {
-        if (mounted) setLoading(false);
+        clearTimeout(timeout);
+        if (mounted) {
+          console.log('UserContext: Initialization complete.');
+          setLoading(false);
+        }
       }
     };
 
@@ -81,37 +98,53 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadUserProfile = async (userId: string) => {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    console.log('UserContext: Loading profile for userId:', userId);
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (userData) {
-      const role = userData.role as UserRole;
-      const permissions = ROLE_PERMISSIONS[role] ?? [];
-      
-      let faceDescriptor = undefined;
-      if (userData.employeeId) {
-        const { data: empData } = await supabase
-          .from('employees')
-          .select('face_descriptor')
-          .eq('id', userData.employeeId)
-          .maybeSingle();
-        if (empData) faceDescriptor = empData.face_descriptor;
+      if (userError) {
+        console.error('UserContext: Error fetching user profile:', userError);
+        return;
       }
 
-      setUser({
-        id: userId,
-        name: userData.name,
-        email: userData.email,
-        role,
-        employeeId: userData.employeeId,
-        permissions,
-        faceDescriptor,
-      });
+      if (userData) {
+        console.log('UserContext: User profile found:', userData.name);
+        const role = userData.role as UserRole;
+        const permissions = ROLE_PERMISSIONS[role] ?? [];
+        
+        let faceDescriptor = undefined;
+        if (userData.employeeId) {
+          console.log('UserContext: Fetching face descriptor for employee:', userData.employeeId);
+          const { data: empData, error: empError } = await supabase
+            .from('employees')
+            .select('face_descriptor')
+            .eq('id', userData.employeeId)
+            .maybeSingle();
+          
+          if (empError) console.error('UserContext: Error fetching employee data:', empError);
+          if (empData) faceDescriptor = empData.face_descriptor;
+        }
+
+        setUser({
+          id: userId,
+          name: userData.name,
+          email: userData.email,
+          role,
+          employeeId: userData.employeeId,
+          permissions,
+          faceDescriptor,
+        });
+        console.log('UserContext: User state updated.');
+      } else {
+        console.warn('UserContext: No profile found in "users" table for Auth user:', userId);
+      }
+    } catch (err) {
+      console.error('UserContext: Unexpected error in loadUserProfile:', err);
     }
-    // If no profile yet, don't change user state - it will be set after signUp creates the profile
   };
 
   /**
