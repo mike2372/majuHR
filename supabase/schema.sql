@@ -13,6 +13,20 @@ CREATE TABLE IF NOT EXISTS system_config (
   "initializedAt" TEXT
 );
 
+-- Company settings for Flutter mobile geofencing
+CREATE TABLE IF NOT EXISTS company_settings (
+  id TEXT PRIMARY KEY DEFAULT 'config',
+  office_lat NUMERIC DEFAULT 3.1390,
+  office_lng NUMERIC DEFAULT 101.6869,
+  office_radius_meters NUMERIC DEFAULT 100.0,
+  updated_at TEXT DEFAULT now()::text
+);
+
+-- Insert default company settings
+INSERT INTO company_settings (id, office_lat, office_lng, office_radius_meters)
+VALUES ('config', 3.1390, 101.6869, 100.0)
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS employees (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -26,6 +40,7 @@ CREATE TABLE IF NOT EXISTS employees (
   "socsoNo" TEXT DEFAULT '-',
   "taxNo" TEXT DEFAULT '-',
   "profilePicture" TEXT,
+  "faceDescriptor" TEXT, -- Face image URL for Flutter/React compatibility
   "userId" TEXT,
   "updatedAt" TEXT
 );
@@ -66,7 +81,13 @@ CREATE TABLE IF NOT EXISTS attendance (
   date TEXT NOT NULL,
   "checkIn" TEXT,
   "checkOut" TEXT,
-  status TEXT NOT NULL
+  status TEXT NOT NULL,
+  "checkInLat" NUMERIC,
+  "checkInLng" NUMERIC,
+  "checkOutLat" NUMERIC,
+  "checkOutLng" NUMERIC,
+  "checkInAddress" TEXT,
+  "checkOutAddress" TEXT
 );
 
 CREATE TABLE IF NOT EXISTS entitlements (
@@ -107,6 +128,11 @@ ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated read attendance" ON attendance FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated write attendance" ON attendance FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read company settings" ON company_settings FOR SELECT USING (true);
+CREATE POLICY "Authenticated can update company settings" ON company_settings FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated can insert company settings" ON company_settings FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
 CREATE TABLE IF NOT EXISTS remote_work_requests (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "employee_id" TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -129,6 +155,7 @@ CREATE POLICY "Authenticated write remote_work" ON remote_work_requests FOR INSE
 CREATE POLICY "Authenticated update remote_work" ON remote_work_requests FOR UPDATE USING (auth.role() = 'authenticated');
 
 ALTER PUBLICATION supabase_realtime ADD TABLE employees;
+ALTER PUBLICATION supabase_realtime ADD TABLE company_settings;
 ALTER PUBLICATION supabase_realtime ADD TABLE remote_work_requests;
 ALTER PUBLICATION supabase_realtime ADD TABLE payroll;
 ALTER PUBLICATION supabase_realtime ADD TABLE leaves;

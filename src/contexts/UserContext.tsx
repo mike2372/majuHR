@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { User, UserRole, Permission } from '../types';
 import { hasPermission as checkPermission, ROLE_PERMISSIONS } from '../lib/rbac';
@@ -23,6 +24,7 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   /** Raw JWT app_metadata claims. Permissions live here — they cannot be spoofed by the user. */
@@ -317,6 +319,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setJwtClaims(null);
+    navigate('/login');
   };
 
   const seed = async () => {
