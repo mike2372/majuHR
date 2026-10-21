@@ -40,7 +40,7 @@ serve(async (req) => {
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     // Header
-    page.drawText('MajuHR Payslip', { x: 50, y: height - 50, size: 24, font: fontPrimary, color: rgb(0.12, 0.25, 0.68) });
+    page.drawText('JagaTime Payslip', { x: 50, y: height - 50, size: 24, font: fontPrimary, color: rgb(0.12, 0.25, 0.68) });
     page.drawText(`Month: ${pay.month}`, { x: 50, y: height - 80, size: 12, font: fontRegular });
 
     // Employee Details

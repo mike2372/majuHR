@@ -1,5 +1,5 @@
 -- =============================================================================
--- MajuHR RBAC Setup: Custom JWT Claims via app_metadata
+-- JagaTime RBAC Setup: Custom JWT Claims via app_metadata
 -- =============================================================================
 -- PURPOSE:
 --   This script sets up the backend for Role-Based Access Control (RBAC).

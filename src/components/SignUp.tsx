@@ -72,7 +72,7 @@ export function SignUp() {
               <Building2 className="w-10 h-10 text-white" />
             </div>
             <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Create Account</h2>
-            <p className="mt-3 text-slate-500 font-medium">Join the MajuHR Enterprise platform</p>
+            <p className="mt-3 text-slate-500 font-medium">Join the JagaTime Enterprise platform</p>
           </div>
         </div>
 
@@ -114,7 +114,7 @@ export function SignUp() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                  placeholder="name@majuhr.com"
+                  placeholder="name@jagatime.com"
                 />
               </div>
             </div>

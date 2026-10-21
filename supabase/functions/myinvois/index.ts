@@ -50,7 +50,7 @@ serve(async (req) => {
         // Employer data (The one receiving the invoice in self-billed)
         "Party": {
           "PartyIdentification": [{ "ID": "EmployerTIN", "schemeID": "TIN" }],
-          "PartyName": [{ "Name": "MajuHR Enterprise" }]
+          "PartyName": [{ "Name": "JagaTime Enterprise" }]
         }
       },
       "AccountingCustomerParty": {

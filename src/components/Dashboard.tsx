@@ -141,7 +141,7 @@ export function Dashboard() {
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-blue-900">Get Started with MajuHR</h3>
+              <h3 className="text-lg font-bold text-blue-900">Get Started with JagaTime</h3>
               <p className="text-blue-800 text-sm">Welcome to your HR Dashboard! Would you like to seed your database with mock employees for testing?</p>
             </div>
           </div>

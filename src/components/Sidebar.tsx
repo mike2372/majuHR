@@ -60,7 +60,7 @@ export function Sidebar() {
             <Building2 className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-xl leading-tight">MajuHR</h1>
+            <h1 className="font-bold text-xl leading-tight">JagaTime</h1>
             <p className="text-xs text-blue-200">Enterprise Edition</p>
           </div>
         </div>

@@ -410,7 +410,7 @@ export function EmployeeDirectory() {
     // Header
     doc.setFontSize(22);
     doc.setTextColor(30, 64, 175); // #1e40af
-    doc.text('MajuHR', 20, 20);
+    doc.text('JagaTime', 20, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -479,7 +479,7 @@ export function EmployeeDirectory() {
       head: [['Date', 'Event', 'Details']],
       body: [
         ['Current', emp.position, 'Promoted to current role in Jan 2024'],
-        [emp.joinDate, 'Joined MajuHR', `Onboarded as Junior ${emp.position.split(' ').pop()}`]
+        [emp.joinDate, 'Joined JagaTime', `Onboarded as Junior ${emp.position.split(' ').pop()}`]
       ],
       theme: 'striped',
       headStyles: { fillStyle: [30, 64, 175] },
@@ -489,7 +489,7 @@ export function EmployeeDirectory() {
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text('This is a computer-generated document from MajuHR System.', pageWidth / 2, 280, { align: 'center' });
+    doc.text('This is a computer-generated document from JagaTime System.', pageWidth / 2, 280, { align: 'center' });
     doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: 'center' });
 
     doc.save(`Profile_${emp.name.replace(/\s+/g, '_')}_${emp.id}.pdf`);
@@ -1088,7 +1088,7 @@ export function EmployeeDirectory() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="e.g. ahmad.z@majuhr.com"
+                    placeholder="e.g. ahmad.z@jagatime.com"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
@@ -1439,7 +1439,7 @@ export function EmployeeDirectory() {
                     <div className="relative">
                       <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
                       <p className="text-xs font-bold text-gray-400 uppercase">{selectedEmployee.joinDate}</p>
-                      <h4 className="text-sm font-bold text-gray-900">Joined MajuHR</h4>
+                      <h4 className="text-sm font-bold text-gray-900">Joined JagaTime</h4>
                       <p className="text-xs text-gray-500 mt-1">Onboarded as Junior {selectedEmployee.position.split(' ').pop()}</p>
                     </div>
                   </div>

@@ -50,7 +50,7 @@ export function Login() {
             <Building2 className="w-10 h-10 text-white" />
           </div>
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Welcome Back</h2>
-          <p className="mt-3 text-slate-500 font-medium">Please sign in to your MajuHR account</p>
+          <p className="mt-3 text-slate-500 font-medium">Please sign in to your JagaTime account</p>
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 p-8 border border-slate-100 backdrop-blur-sm bg-white/90">
@@ -74,7 +74,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none placeholder:text-slate-400"
-                  placeholder="name@majuhr.com"
+                  placeholder="name@jagatime.com"
                 />
               </div>
             </div>

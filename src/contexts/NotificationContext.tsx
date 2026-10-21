@@ -28,7 +28,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     {
       id: '1',
       type: 'system',
-      title: 'Welcome to MajuHR',
+      title: 'Welcome to JagaTime',
       message: 'Your HR management system is ready.',
       timestamp: new Date().toISOString(),
       read: false,
